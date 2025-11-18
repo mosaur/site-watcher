@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 CONFIG_PATH = Path(__file__).with_name("config.json")
+ESTATES_PATH = Path(__file__).with_name("estates.json")
 
 def load_slack_webhook_url():
     try:
@@ -28,6 +29,14 @@ def load_slack_webhook_url():
 SLACK_WEBHOOK_URL = load_slack_webhook_url()
 
 # 推奨 ＞ % sudo pmset -a disablesleep 1
+
+def load_prev_estates():
+    try:
+        with ESTATES_PATH.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("estates.json が見つからないため空の状態から開始します。")
+        return {}
 
 def common_process_run(playwright, func):
     print(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "--- 開始 ---")
@@ -48,8 +57,7 @@ def common_process_run(playwright, func):
 def main_logic(playwright, page):
     notice = []
 
-    with open("estates.json", "r", encoding="utf-8") as f:
-        prev_estates = json.load(f)
+    prev_estates = load_prev_estates()
 
     estates = get_all_estate(page)
 
@@ -61,15 +69,13 @@ def main_logic(playwright, page):
         if title not in estates:
             notice.append("- {}".format(title))
 
-    with open("estates.json", "w", encoding="utf-8") as f:
+    with ESTATES_PATH.open("w", encoding="utf-8") as f:
         json.dump(estates, f, ensure_ascii=False, indent=2)
 
     if len(notice) > 0:
         slack = slackweb.Slack(url=SLACK_WEBHOOK_URL)
         notice_text = "\n".join(notice)
         slack.notify(text="<!channel>\n{}".format(notice_text))
-        for i in range(20):
-            print("\a")
 
 def get_all_estate (page):
     estates = {}
